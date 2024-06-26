@@ -1,0 +1,54 @@
+FROM ubuntu:20.04
+
+# Build arguements cann be passed to docker build via --build-arg USER=<username> --build-arg UID=<user-id>
+ARG USER=user
+ARG UID=1234
+
+# Needed to disable install dialogs during build
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Update apt package cache
+RUN apt update
+
+# Install dependencies
+RUN apt install -y python3 python3-pip git ffmpeg libsm6 libxext6
+
+# Install miniconda
+RUN apt install -y wget && \
+	wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
+    /bin/bash ~/miniconda.sh -b -p /opt/conda && \
+	rm -r ~/miniconda.sh
+
+# Import conda environment
+# COPY ./environment.yml /tmp/environment.yml
+# RUN /opt/conda/bin/conda env create -f /tmp/environment.yml
+# RUN /opt/conda/bin/conda install --file /tmp/requirements.txt
+
+# New conda environment
+# RUN /opt/conda/bin/conda create -n env python=3.8
+
+# Activate environment for users
+# RUN echo '\nsource activate base\n' >> /etc/bash.bashrc
+# ENV BASH_ENV=/etc/bash.bashrc
+
+# Make RUN commands use conda environment (Change "base" to your environment)
+SHELL ["/opt/conda/bin/conda", "run", "-n", "base", "/bin/bash", "-c"]
+
+# Install conda channels and packages from environment file
+COPY ./environment.yml /tmp/environment.yml
+RUN wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && chmod a+x /usr/local/bin/yq
+RUN cat /tmp/environment.yml | yq '... comments=""' | yq .channels | sed --expression='s/-//' | xargs -n 1 -L 1 conda config --add channels 
+RUN cat /tmp/environment.yml | yq '... comments=""' | yq .dependencies | sed --expression='s/-//' | xargs -n 1 -L 1 conda install -y 
+
+# Update pip
+RUN python3 -m pip install --upgrade pip
+
+# Install pip requirements sequentially
+COPY ./requirements.txt /tmp/requirements.txt
+RUN cat /tmp/requirements.txt | xargs -n 1 -L 1 pip3 install
+
+# Add user
+RUN adduser --disabled-password --gecos '' --uid ${UID} ${USER}
+RUN apt update && apt install -y sudo
+RUN adduser ${USER} sudo
+RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers

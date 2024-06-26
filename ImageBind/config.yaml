@@ -1,0 +1,15 @@
+# Local
+# input: ./data
+# output: ./out
+# Container
+
+
+# input: /mnt/workfiles/demo/data
+# output: ./
+# seed: 41
+# learning_rate: 0.1
+# batch_size: 4
+# num_workers: 0
+# num_epochs: 2
+# checkpoint_interval: 2
+# visualization_interval: 1
